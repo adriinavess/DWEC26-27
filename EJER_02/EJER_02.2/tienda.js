@@ -192,19 +192,48 @@ export const parsearPedido = (texto) => {
 // 4.2 Devuelve true si TODOS los productos del pedido existen
 //     y tienen stock suficiente.
 export const puedeServirse = (catalogo, pedido) => {
-  // Tu código aquí
+  // Comprobamos si CADA línea del pedido se puede atender.
+  return pedido.lineas.every((linea) => {
+    // Buscamos el producto en el catálogo.
+    const producto = catalogo.find((producto) => producto.nombre === linea.nombre)
+
+    // Es válido solo si el producto existe Y su stock es mayor o igual a la cantidad pedida.
+    return producto !== undefined && producto.stock >= linea.cantidad
+  })
 };
 
 // 4.3 Devuelve el importe total del pedido.
 export const totalPedido = (catalogo, pedido) => {
-  // Tu código aquí
+  // sumamos todos los importes de cada linea
+  return pedido.lineas.reduce((resultado, linea) => {
+    // buscamos el producto
+    const producto = catalogo.find((producto) => producto.nombre === linea.nombre)
+    // devolvemos resultado que empieza en cero + el precio del producto por la cantidad de ellos pedidos
+    return resultado + producto.precio * linea.cantidad
+  }, 0);
+    
 };
 
 // 4.4 Devuelve un catálogo NUEVO en el que se ha restado del stock
 //     la cantidad pedida de cada producto. El original no cambia.
 //     Pista: { ...producto, stock: nuevoStock } crea una copia del objeto.
 export const servirPedido = (catalogo, pedido) => {
-  // Tu código aquí
+  // Usamos .map() para iterar sobre los productos y crear un catálogo totalmente nuevo.
+  return catalogo.map((producto) => {
+    // Comprobamos si este producto del catálogo forma parte de las líneas del pedido.
+    const linea = pedido.lineas.find((linea) => linea.nombre === producto.nombre)
+
+    // Si está en el pedido, devolvemos una copia del objeto con el stock actualizado.
+    if (linea) {
+      return {
+        ...producto, // Copiamos las propiedades originales (nombre, categoria, precio)
+        stock: producto.stock - linea.cantidad // Sobrescribimos con el nuevo stock reducido
+      }
+    }
+
+    // Si el producto no estaba en el pedido, lo dejamos intacto.
+    return producto
+  })
 };
 
 // 4.5 Devuelve el ticket del pedido como un único texto:

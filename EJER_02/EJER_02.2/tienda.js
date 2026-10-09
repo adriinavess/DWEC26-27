@@ -243,7 +243,22 @@ export const servirPedido = (catalogo, pedido) => {
 //     TOTAL: 260 €
 //     Pista: construye un array de líneas y únelas con '\n'.
 export const generarTicket = (catalogo, pedido) => {
-  // Tu código aquí
+  // Mapeamos las líneas del pedido para crear las frases con subtotales por producto.
+  const lineas = pedido.lineas.map((linea) => {
+    const producto = catalogo.find((producto) => producto.nombre === linea.nombre)
+    const importe = producto.precio * linea.cantidad
+
+    return `${linea.cantidad} x ${linea.nombre} = ${importe} €`
+  })
+
+  // Añadimos el encabezado al PRINCIPIO del array con .unshift()
+  lineas.unshift(`Cliente: ${pedido.cliente}`)
+
+  // Añadimos la línea final de TOTAL al FINAL del array con .push()
+  lineas.push(`TOTAL: ${totalPedido(catalogo, pedido)} €`)
+
+  // Unimos todas las líneas del array insertando un salto de línea ('\n') entre cada una.
+  return lineas.join('\n')
 };
 
 // ================================================================
@@ -254,26 +269,53 @@ export const generarTicket = (catalogo, pedido) => {
 // 5.1 COLA (el primero que llega es el primero en salir):
 //     saca y devuelve el primer pedido de la cola.
 export const atenderSiguiente = (cola) => {
-  // Tu código aquí
+  // .shift() elimina y devuelve el PRIMER elemento de un array (comportamiento tipo Queue/FIFO).
+  return cola.shift()
 };
 
 // 5.2 Coloca el pedido al PRINCIPIO de la cola y devuelve
 //     la nueva longitud de la cola.
 export const agregarUrgente = (cola, pedido) => {
-  // Tu código aquí
+  // .unshift() inserta al INICIO del array y devuelve la nueva longitud del array.
+  return cola.unshift(pedido)
 };
 
 // 5.3 Añade el nombre al final del carrito y apunta la acción en el
 //     historial: { accion: 'agregar', nombre }
 export const agregarAlCarrito = (carrito, historial, nombre) => {
-  // Tu código aquí
+  // Añadimos el artículo al final del carrito.
+  carrito.push(nombre)
+
+  // Guardamos en el historial un objeto registrando la acción realizada.
+  historial.push({
+    accion: 'agregar',
+    nombre: nombre
+  })
 };
 
 // 5.4 Quita la PRIMERA aparición del nombre en el carrito y apunta en
 //     el historial: { accion: 'quitar', nombre, posicion }
 //     Devuelve true, o false (sin tocar nada) si no estaba.
 export const quitarDelCarrito = (carrito, historial, nombre) => {
-  // Tu código aquí
+  // Buscamos la primera posición del artículo en el carrito.
+  const posicion = carrito.indexOf(nombre)
+
+  // Si no existe, indexOf devuelve -1; retornamos false sin modificar nada.
+  if (posicion === -1) {
+    return false
+  }
+
+  // .splice(posicion, 1) elimina 1 elemento en la posición dada (muta el carrito).
+  carrito.splice(posicion, 1)
+
+  // Registramos en el historial la acción, el nombre y la posición original.
+  historial.push({
+    accion: 'quitar',
+    nombre: nombre,
+    posicion: posicion
+  })
+
+  return true;
 };
 
 // 5.5 PILA (la última acción es la primera en deshacerse):
@@ -282,7 +324,35 @@ export const quitarDelCarrito = (carrito, historial, nombre) => {
 //     - si fue 'quitar', vuelve a insertarlo en su posición original.
 //     Devuelve true, o false si el historial estaba vacío.
 export const deshacer = (carrito, historial) => {
-  // Tu código aquí
+  // Si no hay acciones para deshacer, devuelve false.
+  if (historial.length === 0) {
+    return false
+  }
+
+  // .pop() extrae la ÚLTIMA acción agregada al historial (comportamiento tipo Stack/LIFO).
+  const accion = historial.pop()
+
+  // Caso 1: Deshacer un 'agregar'
+  if (accion.accion === 'agregar') {
+    // Localizamos la ÚLTIMA aparición del artículo introducido.
+    const posicion = carrito.lastIndexOf(accion.nombre)
+
+    if (posicion !== -1) {
+      carrito.splice(posicion, 1) // Eliminamos esa última entrada del carrito.
+    }
+
+    return true
+  }
+
+  // Caso 2: Deshacer un 'quitar'
+  if (accion.accion === 'quitar') {
+    // Usamos .splice() para insertar el elemento de nuevo exactamente en su índice original.
+    carrito.splice(accion.posicion, 0, accion.nombre)
+
+    return true
+  }
+
+  return false
 };
 
 // ================================================================
@@ -294,18 +364,47 @@ export const deshacer = (carrito, historial) => {
 //     guarda en servidos; si no, en rechazados. Al terminar la cola queda vacía.
 //     Devuelve { catalogo, servidos, rechazados }
 export const procesarCola = (catalogo, cola) => {
-  // Tu código aquí
+  const servidos = []
+  const rechazados = []
+
+  // Mientas queden elementos dentro del array 'cola':
+  while (cola.length > 0) {
+    // Extraemos el primer pedido disponible.
+    const pedido = atenderSiguiente(cola)
+
+    // Si hay stock y productos válidos:
+    if (puedeServirse(catalogo, pedido)) {
+      catalogo = servirPedido(catalogo, pedido) // Actualizamos el catálogo restando stock
+      servidos.push(pedido)                      // Guardamos en la lista de aceptados
+    } else {
+      rechazados.push(pedido)                    // Guardamos en la lista de rechazados
+    }
+  }
+
+  // Retornamos el catálogo actualizado y los dos arrays de registro.
+  return { catalogo, servidos, rechazados }
 };
 
 // 6.2 Recibe un array de pedidos y devuelve los nombres de los productos
 //     vendidos, SIN repetidos y en orden alfabético.
 export const productosVendidos = (pedidos) => {
-  // Tu código aquí
+  return [...new Set(
+    // flatMap recorre los pedidos, extrae las líneas de productos y "aplana" el resultado en un solo array.
+    pedidos.flatMap(pedido => pedido.lineas.map(linea => linea.nombre))
+  )].sort() 
+  // 1. new Set(...) elimina automáticamente los elementos duplicados.
+  // 2. [...Set] convierte de nuevo la estructura Set a un Array normal.
+  // 3. .sort() los ordena alfabéticamente.
 };
 
 // 6.3 Devuelve un array de textos con una barra por producto:
 //     'Altavoz: ■■■ (3)'
 //     Obligatorio: crea la barra con new Array(...).fill('■')
 export const graficoStock = (catalogo) => {
-  // Tu código aquí
+  return catalogo.map(producto =>
+    // 1. new Array(producto.stock) crea un array vacío de longitud igual al stock.
+    // 2. .fill('■') rellena cada posición con el carácter del bloque.
+    // 3. .join('') une todos los bloques en una sola cadena de texto visual.
+    `${producto.nombre}: ${new Array(producto.stock).fill('■').join('')} (${producto.stock})`
+  )
 };
